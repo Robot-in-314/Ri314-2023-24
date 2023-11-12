@@ -15,7 +15,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.hardware.Servo;
 
 @Autonomous(name="Ri314PIDLoggingAuto", group="Ri314")
-public class MecaBildaPIDLoggingAuto extends LinearOpMode {
+public class Ri314PIDLoggingAuto extends LinearOpMode {
 
     float rotate_angle = 0;
     double reset_angle = 0;
@@ -44,7 +44,7 @@ public class MecaBildaPIDLoggingAuto extends LinearOpMode {
         front_right_wheel.motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
         back_right_wheel.motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
 
-        front_left_wheel.motor.setDirection(DcMotorEx.Direction.REVERSE); 
+        front_left_wheel.motor.setDirection(DcMotorEx.Direction.FORWARD); 
         back_left_wheel.motor.setDirection(DcMotorEx.Direction.REVERSE); 
         front_right_wheel.motor.setDirection(DcMotorEx.Direction.FORWARD); 
         back_right_wheel.motor.setDirection(DcMotorEx.Direction.FORWARD); 
@@ -54,10 +54,10 @@ public class MecaBildaPIDLoggingAuto extends LinearOpMode {
         front_right_wheel.motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
         back_right_wheel.motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
 
-        MecaBildaPIDUtil.SetPIDCoefficients(front_left_wheel.motor);
-        MecaBildaPIDUtil.SetPIDCoefficients(back_left_wheel.motor);
-        MecaBildaPIDUtil.SetPIDCoefficients(front_right_wheel.motor);
-        MecaBildaPIDUtil.SetPIDCoefficients(back_right_wheel.motor);
+        Ri314PIDUtil.SetPIDCoefficients(front_left_wheel.motor);
+        Ri314PIDUtil.SetPIDCoefficients(back_left_wheel.motor);
+        Ri314PIDUtil.SetPIDCoefficients(front_right_wheel.motor);
+        Ri314PIDUtil.SetPIDCoefficients(back_right_wheel.motor);
         
         imu = hardwareMap.get(BNO055IMU.class, "imu");
 
@@ -93,7 +93,7 @@ public class MecaBildaPIDLoggingAuto extends LinearOpMode {
     }
     
     public void driveSequence(){
-        double half_speed_in_ticks = 1380; // see MecaBildaPIDTuning
+        double half_speed_in_ticks = 1380; // see Ri314PIDTuning
         double full_speed_in_ticks = half_speed_in_ticks * 2;
         
         // Drive forward, at first slowly, then faster

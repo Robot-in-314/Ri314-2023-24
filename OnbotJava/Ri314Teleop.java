@@ -26,6 +26,9 @@ public class Ri314Teleop extends LinearOpMode {
     private DcMotorEx back_right_wheel = null;
     private DcMotorEx front_right_wheel = null;
 
+    private DcMotorEx climber_motor = null;
+    private Servo launcher_servo = null;
+
     BNO055IMU imu;
     @Override
     public void runOpMode() {
@@ -34,13 +37,19 @@ public class Ri314Teleop extends LinearOpMode {
         back_left_wheel = hardwareMap.get(DcMotorEx.class, "lr");
         back_right_wheel = hardwareMap.get(DcMotorEx.class, "rr");
         front_right_wheel = hardwareMap.get(DcMotorEx.class, "rf");
+
+        climber_motor = hardwareMap.get(DcMotorEx.class, "climber");
+        
+        launcher_servo = hardwareMap.get(Servo.class, "launcherServo");
         
         front_left_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
         back_left_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
         front_right_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
         back_right_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
 
-        front_left_wheel.setDirection(DcMotorEx.Direction.REVERSE); 
+        climber_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
+
+        front_left_wheel.setDirection(DcMotorEx.Direction.FORWARD); 
         back_left_wheel.setDirection(DcMotorEx.Direction.REVERSE); 
         front_right_wheel.setDirection(DcMotorEx.Direction.FORWARD); 
         back_right_wheel.setDirection(DcMotorEx.Direction.FORWARD); 
@@ -48,7 +57,8 @@ public class Ri314Teleop extends LinearOpMode {
         front_left_wheel.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
         back_left_wheel.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
         front_right_wheel.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
-        back_right_wheel.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
+
+        climber_motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
 
         Ri314PIDUtil.SetPIDCoefficients(front_left_wheel);
         Ri314PIDUtil.SetPIDCoefficients(back_left_wheel);
@@ -90,7 +100,28 @@ public class Ri314Teleop extends LinearOpMode {
                 resetAngle();
                 //driveSimple();
                 
+                launch_airplane();
+                climb();
+                
                 telemetry.update();
+        }
+    }
+    
+    public void climb(){
+        if(gamepad1.a){ // climb/retract
+            climber_motor.setPower(1);
+        } else if (gamepad1.y){ // deploy
+            climber_motor.setPower(-1);
+        } else {
+            climber_motor.setPower(0);
+        }
+    }
+    
+    public void launch_airplane(){
+        if(gamepad1.right_trigger > 0.1){ // launch
+            launcher_servo.setPosition(0.8);
+        } else {
+            launcher_servo.setPosition(0);
         }
     }
     
@@ -193,13 +224,14 @@ public class Ri314Teleop extends LinearOpMode {
         telemetry.addData("rf V", front_right_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
         telemetry.addData("lr V", back_left_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
         telemetry.addData("rr V", back_right_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
-        
     }
+    
     public void resetAngle(){
-        if(gamepad1.a){
+        if(gamepad1.right_bumper && gamepad1.left_bumper){
             reset_angle = getHeading() + reset_angle;
         }
     }
+    
     public double getHeading(){
         Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         double heading = angles.firstAngle;

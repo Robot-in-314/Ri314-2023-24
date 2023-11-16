@@ -15,6 +15,15 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.hardware.Servo;
 
+enum IntakeState {
+  kIntakeUp1,
+  kIntakeUp2,
+  kIntakeDown1,
+  kIntakeDown2,
+  kClimberReleased1,
+  kClimberReleased2
+}
+
 @TeleOp(name="Ri314Teleop", group="Ri314")
 public class Ri314Teleop extends LinearOpMode {
 
@@ -27,7 +36,12 @@ public class Ri314Teleop extends LinearOpMode {
     private DcMotorEx front_right_wheel = null;
 
     private DcMotorEx climber_motor = null;
+
     private Servo launcher_servo = null;
+    private Servo intake_servo = null;
+    private Servo bucket_servo = null;
+
+    private IntakeState intake_dropper_state = IntakeState.kIntakeUp1;
 
     BNO055IMU imu;
     @Override
@@ -41,6 +55,7 @@ public class Ri314Teleop extends LinearOpMode {
         climber_motor = hardwareMap.get(DcMotorEx.class, "climber");
         
         launcher_servo = hardwareMap.get(Servo.class, "launcherServo");
+        intake_servo = hardwareMap.get(Servo.class, "intakeDropper");
         
         front_left_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
         back_left_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
@@ -100,6 +115,7 @@ public class Ri314Teleop extends LinearOpMode {
                 resetAngle();
                 //driveSimple();
                 
+                deploy_intake();
                 launch_airplane();
                 climb();
                 
@@ -107,18 +123,55 @@ public class Ri314Teleop extends LinearOpMode {
         }
     }
     
+    public void deploy_intake() {
+        switch (intake_dropper_state) {
+            case kIntakeUp1:
+                if (gamepad1.x) {
+                    intake_dropper_state = IntakeState.kIntakeUp2;
+                }
+                break;
+            case kIntakeUp2:
+                if (!gamepad1.x) { // move servo on button release
+                    intake_servo.setPosition(0.35);
+                    intake_dropper_state = IntakeState.kIntakeDown1;
+                }
+                break;
+            case kIntakeDown1:
+                if (gamepad1.x) {
+                    intake_dropper_state = IntakeState.kIntakeDown2;
+                }
+                break;
+            case kIntakeDown2:
+                if (!gamepad1.x) { // move servo on button release
+                    intake_servo.setPosition(0);
+                    intake_dropper_state = IntakeState.kClimberReleased1;
+                }
+                break;
+            case kClimberReleased1:
+                if (gamepad1.x) {
+                    intake_dropper_state = IntakeState.kClimberReleased2;
+                }
+                break;
+            case kClimberReleased2:
+                if (!gamepad1.x) { // move servo on button release
+                    intake_servo.setPosition(0.35);
+                    intake_dropper_state = IntakeState.kIntakeDown1;
+                }
+                break;
+        }
+        
+        
+    }
     public void climb(){
-        if(gamepad1.a){ // climb/retract
+        if(gamepad1.left_bumper && !gamepad1.right_bumper){ // deploy
             climber_motor.setPower(1);
-        } else if (gamepad1.y){ // deploy
-            climber_motor.setPower(-1);
         } else {
-            climber_motor.setPower(0);
+            climber_motor.setPower(-gamepad1.left_trigger);
         }
     }
     
     public void launch_airplane(){
-        if(gamepad1.right_trigger > 0.1){ // launch
+        if(gamepad1.right_trigger > 0.1 && gamepad1.right_bumper){ // launch
             launcher_servo.setPosition(0.8);
         } else {
             launcher_servo.setPosition(0);

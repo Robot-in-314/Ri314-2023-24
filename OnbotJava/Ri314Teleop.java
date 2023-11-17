@@ -30,8 +30,9 @@ enum SlideState {
   kSlideDownWaiting,
   kSlideDownBucketUp,
   kSlideManualControl,
-  kSlideExtending,
-  kSlideRetracting,
+  kSlideAutomaticControl,
+  kSlideExtendingAuto,
+  kSlideRetractingAuto,
   kSlideExtended
 }
 
@@ -99,6 +100,7 @@ public class Ri314Teleop extends LinearOpMode {
         front_right_wheel.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
 
         climber_motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
+        slide_motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
 
         Ri314PIDUtil.SetPIDCoefficients(front_left_wheel);
         Ri314PIDUtil.SetPIDCoefficients(back_left_wheel);
@@ -145,6 +147,7 @@ public class Ri314Teleop extends LinearOpMode {
                 launch_airplane();
                 climb();
                 
+                telemetry.addData("Slide Homed", slide_homed);
                 telemetry.update();
         }
     }
@@ -192,17 +195,19 @@ public class Ri314Teleop extends LinearOpMode {
     }
 
     private void move_slide() {
-        telemetry.addData("Slide Homed", slide_homed);
-        telemetry.addData("Slide Encoder", slide_motor.getCurrentPosition());
+        telemetry.addData("Slide V: ", slide_motor.getVelocity());
+        telemetry.addData("Slide Pos: ", slide_motor.getCurrentPosition());
         switch (slide_state) {
             case kIntakeReady:
-                if (gamepad1.dpad_up) { // move slide manually; bucket must be up
+                telemetry.addData("Slide State: ", "READY");
+                if (gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.y) { // move slide manually or automatically; bucket must be up
                     arm_servo.setPosition(0.4);
                     bucket_timer.reset();
                     slide_state = SlideState.kSlideDownWaiting;
                 }
                 break;
             case kSlideDownWaiting:
+                telemetry.addData("Slide State: ", "WAITING");
                 if (bucket_timer.seconds() < 1) { // wait in this state until bucket has time to raise 
                     slide_motor.setPower(0);
                 } else { // done waiting; move on
@@ -210,19 +215,53 @@ public class Ri314Teleop extends LinearOpMode {
                 }
                 break;
             case kSlideDownBucketUp:
-                if (gamepad1.dpad_up) {
+                telemetry.addData("Slide State: ", "DOWNUP");
+                if (gamepad1.dpad_up || gamepad1.dpad_down) {
                     slide_state = SlideState.kSlideManualControl;
+                } else if (slide_homed && (gamepad1.a || gamepad1.y)) {
+                    slide_state = SlideState.kSlideAutomaticControl;
                 } else {
                     slide_motor.setPower(0);
                 }
                 break;
+            case kSlideAutomaticControl:
+                telemetry.addData("Slide State: ", "AUTO");
+                if (gamepad1.dpad_up || gamepad1.dpad_down) {
+                    slide_state = SlideState.kSlideManualControl;
+                } else if (slide_homed) {
+                    if (gamepad1.y) {
+                        slide_motor.setTargetPosition(2000);
+                        slide_motor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
+                        slide_motor.setVelocity(2000);
+                        slide_state = SlideState.kSlideExtendingAuto;
+                    } else {
+                        slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
+                        slide_motor.setVelocity(0);
+                    }
+                }
+            case kSlideExtendingAuto:
+                telemetry.addData("Slide State: ", "EXTENDING");
+                if (slide_homed) {
+                    if (gamepad1.y) {
+                        if (!slide_motor.isBusy()) { // completed movement
+                            slide_state = SlideState.kSlideAutomaticControl;
+                        }
+                    } else {
+                        slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
+                        slide_motor.setVelocity(0);
+                    }
+                }
+                break;
             case kSlideManualControl:
+                telemetry.addData("Slide State: ", "MANUAL");
                 slide_motor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODERS);
                 if (gamepad1.dpad_up) {
                     slide_motor.setPower(.5);
-                    // telemetry.addData("slide", climber_motor.getVelocity());
+                    // telemetry.addData("Slide V: ", slide_motor.getVelocity());
                 } else if (gamepad1.dpad_down) {
-                    slide_motor.setPower(-.5);
+                    slide_motor.setPower(-.2);
+                } else if (slide_homed && (gamepad1.a || gamepad1.y)) {
+                    slide_state = SlideState.kSlideAutomaticControl;
                 } else {
                     slide_motor.setPower(0);
                     check_slide_homed();

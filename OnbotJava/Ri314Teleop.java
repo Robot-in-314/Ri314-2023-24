@@ -28,11 +28,15 @@ enum IntakeState {
 enum SlideState {
   kIntakeReady,
   kSlideDownWaiting,
+  kSlideDownWaitingForStow,
   kSlideDownBucketUp,
   kSlideManualControl,
   kSlideAutomaticControl,
   kSlideExtendingAuto,
   kSlideRetractingAuto,
+  kSlideStowingBucket1,
+  kSlideStowingBucket2,
+  kSlideStowingBucket3,
   kSlideExtended
 }
 
@@ -230,18 +234,26 @@ public class Ri314Teleop extends LinearOpMode {
                     slide_state = SlideState.kSlideManualControl;
                 } else if (slide_homed) {
                     if (gamepad1.y) {
-                        slide_motor.setTargetPosition(2000);
+                        slide_motor.setTargetPosition(3300);
                         slide_motor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
                         slide_motor.setVelocity(2000);
                         slide_state = SlideState.kSlideExtendingAuto;
+                    } else if (gamepad1.a) {
+                        slide_motor.setTargetPosition(300);
+                        slide_motor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
+                        slide_motor.setVelocity(1000);
+                        slide_state = SlideState.kSlideRetractingAuto;
                     } else {
                         slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
                         slide_motor.setVelocity(0);
                     }
                 }
+                break;
             case kSlideExtendingAuto:
-                telemetry.addData("Slide State: ", "EXTENDING");
-                if (slide_homed) {
+                telemetry.addData("Slide State: ", "MOVING");
+                if (gamepad1.dpad_up || gamepad1.dpad_down) {
+                    slide_state = SlideState.kSlideManualControl;
+                } else if (slide_homed) {
                     if (gamepad1.y) {
                         if (!slide_motor.isBusy()) { // completed movement
                             slide_state = SlideState.kSlideAutomaticControl;
@@ -249,6 +261,68 @@ public class Ri314Teleop extends LinearOpMode {
                     } else {
                         slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
                         slide_motor.setVelocity(0);
+                        slide_state = SlideState.kSlideAutomaticControl;
+                    }
+                }
+                break;
+            case kSlideRetractingAuto:
+                telemetry.addData("Slide State: ", "RETRACTING");
+                if (gamepad1.dpad_up || gamepad1.dpad_down) {
+                    slide_state = SlideState.kSlideManualControl;
+                } else if (slide_homed) {
+                    if (gamepad1.a) {
+                        if (!slide_motor.isBusy()) { // completed movement
+                            arm_servo.setPosition(0.8);
+                            slide_state = SlideState.kSlideStowingBucket1;
+                        }
+                    } else {
+                        slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
+                        slide_motor.setVelocity(0);
+                        slide_state = SlideState.kSlideAutomaticControl;
+                    }
+                }
+                break;
+            case kSlideStowingBucket1:
+                telemetry.addData("Slide State: ", "STOWING 1");
+                if (slide_homed && gamepad1.a) { // move slide manually or automatically; bucket must be up
+                    arm_servo.setPosition(0.66);
+                    bucket_timer.reset();
+                    slide_state = SlideState.kSlideDownWaitingForStow;
+                } else {
+                    slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
+                    slide_motor.setVelocity(0);
+                    slide_state = SlideState.kSlideAutomaticControl;
+                }
+                break;
+            case kSlideDownWaitingForStow:
+                telemetry.addData("Slide State: ", "STOWING WAIT");
+                if (bucket_timer.seconds() < 1) { // wait in this state until bucket has time to stow 
+                    slide_motor.setPower(0);
+                } else { // done waiting; move on
+                    slide_state = SlideState.kSlideStowingBucket2;
+                }
+                break;
+            case kSlideStowingBucket2:
+                telemetry.addData("Slide State: ", "STOWING 2");
+                if (gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.y) { // abort back to square 1
+                    slide_state = SlideState.kIntakeReady;
+                } else if (slide_homed && gamepad1.a) {
+                    slide_motor.setTargetPosition(0);
+                    slide_motor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
+                    slide_motor.setVelocity(1000);
+                    slide_state = SlideState.kSlideStowingBucket3;
+                } else {
+                    slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
+                    slide_motor.setVelocity(0);
+                }
+                break;
+            case kSlideStowingBucket3:
+                telemetry.addData("Slide State: ", "STOWING 3");
+                if (gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.y) { // abort back to square 1
+                    slide_state = SlideState.kIntakeReady;
+                } else if (slide_homed && gamepad1.a) {
+                    if (!slide_motor.isBusy()) { // completed movement
+                        slide_state = SlideState.kIntakeReady;
                     }
                 }
                 break;

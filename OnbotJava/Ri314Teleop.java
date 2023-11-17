@@ -15,6 +15,7 @@ import com.qualcomm.robotcore.hardware.DigitalChannel;
 
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.CRServo;
 
 enum IntakeState {
   kIntakeUp1,
@@ -58,6 +59,7 @@ public class Ri314Teleop extends LinearOpMode {
     private Servo intake_servo = null;
     private Servo bucket_servo = null;
     private Servo arm_servo = null;
+    private CRServo intake_motor = null;
 
     private IntakeState intake_dropper_state = IntakeState.kIntakeUp1;
     private SlideState slide_state = SlideState.kIntakeReady;
@@ -78,6 +80,7 @@ public class Ri314Teleop extends LinearOpMode {
 
         climber_motor = hardwareMap.get(DcMotorEx.class, "climber");
         slide_motor = hardwareMap.get(DcMotorEx.class, "elevator");
+        intake_motor = hardwareMap.get(CRServo.class, "intakeMotor");
         
         launcher_servo = hardwareMap.get(Servo.class, "launcherServo");
         intake_servo = hardwareMap.get(Servo.class, "intakeDropper");
@@ -205,9 +208,22 @@ public class Ri314Teleop extends LinearOpMode {
             case kIntakeReady:
                 telemetry.addData("Slide State: ", "READY");
                 if (gamepad1.dpad_up || gamepad1.dpad_down || gamepad1.y) { // move slide manually or automatically; bucket must be up
+                    intake_motor.setPower(0); // leaving ready state, so stop intake
                     arm_servo.setPosition(0.4);
                     bucket_timer.reset();
                     slide_state = SlideState.kSlideDownWaiting;
+                } else if (gamepad1.b) { // run intake in reverse
+                    if (intake_motor.getPower() == 0) {
+                        intake_motor.setPower(1); 
+                    } else {
+                        intake_motor.setPower(0); 
+                    }
+                } else if (gamepad1.a) { // toggle intake motor
+                    if (intake_motor.getPower() == 0) {
+                        intake_motor.setPower(-1); 
+                    } else {
+                        intake_motor.setPower(0); 
+                    }
                 }
                 break;
             case kSlideDownWaiting:

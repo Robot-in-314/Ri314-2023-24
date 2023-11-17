@@ -11,6 +11,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import com.qualcomm.robotcore.hardware.Gyroscope;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
 
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -22,6 +23,16 @@ enum IntakeState {
   kIntakeDown2,
   kClimberReleased1,
   kClimberReleased2
+}
+
+enum SlideState {
+  kIntakeReady,
+  kSlideDownWaiting,
+  kSlideDownBucketUp,
+  kSlideManualControl,
+  kSlideExtending,
+  kSlideRetracting,
+  kSlideExtended
 }
 
 @TeleOp(name="Ri314Teleop", group="Ri314")
@@ -36,14 +47,22 @@ public class Ri314Teleop extends LinearOpMode {
     private DcMotorEx front_right_wheel = null;
 
     private DcMotorEx climber_motor = null;
+    private DcMotorEx slide_motor = null;
 
     private Servo launcher_servo = null;
     private Servo intake_servo = null;
     private Servo bucket_servo = null;
+    private Servo arm_servo = null;
 
     private IntakeState intake_dropper_state = IntakeState.kIntakeUp1;
+    private SlideState slide_state = SlideState.kIntakeReady;
+    private ElapsedTime bucket_timer = new ElapsedTime();
+    private DigitalChannel line_sensor = null;
+
+    boolean slide_homed = false;
 
     BNO055IMU imu;
+
     @Override
     public void runOpMode() {
         
@@ -53,16 +72,22 @@ public class Ri314Teleop extends LinearOpMode {
         front_right_wheel = hardwareMap.get(DcMotorEx.class, "rf");
 
         climber_motor = hardwareMap.get(DcMotorEx.class, "climber");
+        slide_motor = hardwareMap.get(DcMotorEx.class, "elevator");
         
         launcher_servo = hardwareMap.get(Servo.class, "launcherServo");
         intake_servo = hardwareMap.get(Servo.class, "intakeDropper");
+        arm_servo = hardwareMap.get(Servo.class, "arm");
+
+        line_sensor = hardwareMap.get(DigitalChannel.class, "line2");
+        line_sensor.setMode(DigitalChannel.Mode.INPUT);
         
         front_left_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
         back_left_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
         front_right_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
         back_right_wheel.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
 
-        climber_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
+        climber_motor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODERS);
+        slide_motor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODERS);
 
         front_left_wheel.setDirection(DcMotorEx.Direction.FORWARD); 
         back_left_wheel.setDirection(DcMotorEx.Direction.REVERSE); 
@@ -105,6 +130,7 @@ public class Ri314Teleop extends LinearOpMode {
         parameters.loggingEnabled      = false;
         imu.initialize(parameters);
 
+        check_slide_homed();
 
         while(!opModeIsActive() && !isStopRequested()){} // like waitforstart
 
@@ -113,8 +139,8 @@ public class Ri314Teleop extends LinearOpMode {
 
                 drive();
                 resetAngle();
-                //driveSimple();
                 
+                move_slide();
                 deploy_intake();
                 launch_airplane();
                 climb();
@@ -123,7 +149,11 @@ public class Ri314Teleop extends LinearOpMode {
         }
     }
     
-    public void deploy_intake() {
+    private boolean slide_at_bottom_limit() {
+        return !line_sensor.getState();
+    }
+
+    private void deploy_intake() {
         switch (intake_dropper_state) {
             case kIntakeUp1:
                 if (gamepad1.x) {
@@ -159,10 +189,56 @@ public class Ri314Teleop extends LinearOpMode {
                 }
                 break;
         }
-        
-        
     }
-    public void climb(){
+
+    private void move_slide() {
+        telemetry.addData("Slide Homed", slide_homed);
+        telemetry.addData("Slide Encoder", slide_motor.getCurrentPosition());
+        switch (slide_state) {
+            case kIntakeReady:
+                if (gamepad1.dpad_up) { // move slide manually; bucket must be up
+                    arm_servo.setPosition(0.4);
+                    bucket_timer.reset();
+                    slide_state = SlideState.kSlideDownWaiting;
+                }
+                break;
+            case kSlideDownWaiting:
+                if (bucket_timer.seconds() < 1) { // wait in this state until bucket has time to raise 
+                    slide_motor.setPower(0);
+                } else { // done waiting; move on
+                    slide_state = SlideState.kSlideDownBucketUp;
+                }
+                break;
+            case kSlideDownBucketUp:
+                if (gamepad1.dpad_up) {
+                    slide_state = SlideState.kSlideManualControl;
+                } else {
+                    slide_motor.setPower(0);
+                }
+                break;
+            case kSlideManualControl:
+                slide_motor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODERS);
+                if (gamepad1.dpad_up) {
+                    slide_motor.setPower(.5);
+                    // telemetry.addData("slide", climber_motor.getVelocity());
+                } else if (gamepad1.dpad_down) {
+                    slide_motor.setPower(-.5);
+                } else {
+                    slide_motor.setPower(0);
+                    check_slide_homed();
+                }
+                break;
+        }
+    }
+
+    private void check_slide_homed() {
+        if (slide_at_bottom_limit()) {
+            slide_homed = true;
+            slide_motor.setMode(DcMotorEx.RunMode.STOP_AND_RESET_ENCODER);
+        }
+    }
+
+    private void climb(){
         if(gamepad1.left_bumper && !gamepad1.right_bumper){ // deploy
             climber_motor.setPower(1);
         } else {
@@ -170,7 +246,7 @@ public class Ri314Teleop extends LinearOpMode {
         }
     }
     
-    public void launch_airplane(){
+    private void launch_airplane(){
         if(gamepad1.right_trigger > 0.1 && gamepad1.right_bumper){ // launch
             launcher_servo.setPosition(0.8);
         } else {
@@ -178,47 +254,8 @@ public class Ri314Teleop extends LinearOpMode {
         }
     }
     
-    public void driveSimple(){
-        double power = 0.5;
-        if(gamepad1.dpad_up){ //Forward
-            front_left_wheel.setPower(-power);
-            back_left_wheel.setPower(-power);
-            back_right_wheel.setPower(-power);
-            front_right_wheel.setPower(-power);
-        }
-        else if(gamepad1.dpad_left){ //Left
-            front_left_wheel.setPower(power);
-            back_left_wheel.setPower(-power);
-            back_right_wheel.setPower(power);
-            front_right_wheel.setPower(-power);
-        }
-        else if(gamepad1.dpad_down){ //Back
-            front_left_wheel.setPower(power);
-            back_left_wheel.setPower(power);
-            back_right_wheel.setPower(power);
-            front_right_wheel.setPower(power);
-        }
-        else if(gamepad1.dpad_right){ //Right
-            front_left_wheel.setPower(-power);
-            back_left_wheel.setPower(power);
-            back_right_wheel.setPower(-power);
-            front_right_wheel.setPower(power);
-        }
-        else if(Math.abs(gamepad1.right_stick_x) > 0){ //Rotation
-            front_left_wheel.setPower(-gamepad1.right_stick_x);
-            back_left_wheel.setPower(-gamepad1.right_stick_x);
-            back_right_wheel.setPower(gamepad1.right_stick_x);
-            front_right_wheel.setPower(gamepad1.right_stick_x);
-        }
-        else{
-            front_left_wheel.setPower(0);
-            back_left_wheel.setPower(0);
-            back_right_wheel.setPower(0);
-            front_right_wheel.setPower(0);
-        }
-    }
 
-    public void drive() {
+    private void drive() {
         double drivescale = 1.9; 
         double rotatescale = 1; 
         double Protate = -gamepad1.right_stick_x/rotatescale;
@@ -242,19 +279,6 @@ public class Ri314Teleop extends LinearOpMode {
             gyroAngle = -Math.PI/2;
         }
         
-        //Linear directions in case you want to do straight lines.
-        if(gamepad1.dpad_right){
-            stick_x = 0.7;
-        }
-        else if(gamepad1.dpad_left){
-            stick_x = -0.7;
-        }
-        if(gamepad1.dpad_up){
-            stick_y = -0.7;
-        }
-        else if(gamepad1.dpad_down){
-            stick_y = 0.7;
-        }
         
         //MOVEMENT
         theta = Math.atan2(stick_y, stick_x) - gyroAngle - (Math.PI / 2);
@@ -279,13 +303,13 @@ public class Ri314Teleop extends LinearOpMode {
         telemetry.addData("rr V", back_right_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
     }
     
-    public void resetAngle(){
+    private void resetAngle(){
         if(gamepad1.right_bumper && gamepad1.left_bumper){
             reset_angle = getHeading() + reset_angle;
         }
     }
     
-    public double getHeading(){
+    private double getHeading(){
         Orientation angles = imu.getAngularOrientation(AxesReference.INTRINSIC, AxesOrder.ZYX, AngleUnit.DEGREES);
         double heading = angles.firstAngle;
         if(heading < -180) {

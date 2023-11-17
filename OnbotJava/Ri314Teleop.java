@@ -248,6 +248,10 @@ public class Ri314Teleop extends LinearOpMode {
                         slide_motor.setVelocity(0);
                     }
                 }
+                // allow right trigger to dump bucket
+                if (!gamepad1.right_bumper) {
+                    arm_servo.setPosition(0.4 - gamepad1.right_trigger/2);
+                }
                 break;
             case kSlideExtendingAuto:
                 telemetry.addData("Slide State: ", "MOVING");
@@ -263,6 +267,10 @@ public class Ri314Teleop extends LinearOpMode {
                         slide_motor.setVelocity(0);
                         slide_state = SlideState.kSlideAutomaticControl;
                     }
+                }
+                // allow right trigger to dump bucket
+                if (!gamepad1.right_bumper) {
+                    arm_servo.setPosition(0.4 - gamepad1.right_trigger/2);
                 }
                 break;
             case kSlideRetractingAuto:
@@ -361,7 +369,7 @@ public class Ri314Teleop extends LinearOpMode {
     
     private void launch_airplane(){
         if(gamepad1.right_trigger > 0.1 && gamepad1.right_bumper){ // launch
-            launcher_servo.setPosition(0.8);
+            launcher_servo.setPosition(0.7);
         } else {
             launcher_servo.setPosition(0);
         }

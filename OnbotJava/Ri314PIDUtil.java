@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 public class Ri314PIDUtil {
 
-    public static double MaxVInTicks = 2760;
+    public static double MaxVInTicks = 1000;  // actual is 2760, but lower to make robot slower
     
     public static void SetPIDCoefficients (DcMotorEx motor) {
         /* calculated in MecaBildaPIDTuning

@@ -54,6 +54,13 @@ public class Ri314Teleop extends LinearOpMode {
     private static final double kArmStowedPosition = 0.66;
     private static final double kArmTravelPosition = 0.4;
 
+    private static final double kIntakeRelease = 0.35;
+    private static final double kClimberRelease = 0;
+
+    private static final int kSlideExtended = 2570; // 3300 is full extension, but for scoring...
+    private static final int kSlideRetracted1 = 300;
+    private static final int kSlideRetracted2 = 0;
+
     float rotate_angle = 0;
     double reset_angle = 0;
     
@@ -182,7 +189,7 @@ public class Ri314Teleop extends LinearOpMode {
                 break;
             case kIntakeUp2:
                 if (!gamepad1.x) { // move servo on button release
-                    intake_servo.setPosition(0.35);
+                    intake_servo.setPosition(kIntakeRelease);
                     intake_dropper_state = IntakeState.kIntakeDown1;
                 }
                 break;
@@ -193,7 +200,7 @@ public class Ri314Teleop extends LinearOpMode {
                 break;
             case kIntakeDown2:
                 if (!gamepad1.x) { // move servo on button release
-                    intake_servo.setPosition(0);
+                    intake_servo.setPosition(kClimberRelease);
                     intake_dropper_state = IntakeState.kClimberReleased1;
                 }
                 break;
@@ -204,7 +211,7 @@ public class Ri314Teleop extends LinearOpMode {
                 break;
             case kClimberReleased2:
                 if (!gamepad1.x) { // move servo on button release
-                    intake_servo.setPosition(0.35);
+                    intake_servo.setPosition(kIntakeRelease);
                     intake_dropper_state = IntakeState.kIntakeDown1;
                 }
                 break;
@@ -291,12 +298,12 @@ public class Ri314Teleop extends LinearOpMode {
                     slide_state = SlideState.kSlideManualControl;
                 } else if (slide_homed) {
                     if (gamepad1.y) {
-                        slide_motor.setTargetPosition(3300);
+                        slide_motor.setTargetPosition(kSlideExtended);
                         slide_motor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
                         slide_motor.setVelocity(2000);
                         slide_state = SlideState.kSlideExtendingAuto;
                     } else if (gamepad1.a) {
-                        slide_motor.setTargetPosition(300);
+                        slide_motor.setTargetPosition(kSlideRetracted1);
                         slide_motor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
                         slide_motor.setVelocity(1000);
                         slide_state = SlideState.kSlideRetractingAuto;
@@ -375,7 +382,7 @@ public class Ri314Teleop extends LinearOpMode {
                 telemetry.addData("Slide State: ", "STOWING 7");
                 if (!check_for_return_to_slide_ready()) {
                     if (slide_homed && gamepad1.a) {
-                        slide_motor.setTargetPosition(0);
+                        slide_motor.setTargetPosition(kSlideRetracted2);
                         slide_motor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
                         slide_motor.setVelocity(1000);
                         slide_state = SlideState.kSlideStowingBucket8;
@@ -479,10 +486,10 @@ public class Ri314Teleop extends LinearOpMode {
         front_right_wheel.setVelocity(front_right_power * Ri314PIDUtil.MaxVInTicks);
 
         // report velicity as a fraction
-        telemetry.addData("lf V", front_left_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks );
-        telemetry.addData("rf V", front_right_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
-        telemetry.addData("lr V", back_left_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
-        telemetry.addData("rr V", back_right_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
+        // telemetry.addData("lf V", front_left_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks );
+        // telemetry.addData("rf V", front_right_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
+        // telemetry.addData("lr V", back_left_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
+        // telemetry.addData("rr V", back_right_wheel.getVelocity() / Ri314PIDUtil.MaxVInTicks);
     }
     
     private void resetAngle(){

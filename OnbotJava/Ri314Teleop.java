@@ -222,7 +222,7 @@ public class Ri314Teleop extends LinearOpMode {
         return result;
     }
 
-    private void bucket_stow_move_step (int target_pos, SlideState next_step) {
+    private void bucket_stow_move_step (double target_pos, SlideState next_step) {
         if (!check_for_return_to_slide_ready()) {
             if (slide_homed && gamepad1.a) { 
                 arm_servo.setPosition(target_pos);
